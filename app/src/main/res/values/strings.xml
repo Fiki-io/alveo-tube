@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">Alveo Tube</string>
+    <string name="search_hint">Cari video, musik, atau tempel link...</string>
+    <string name="search_action">Cari</string>
+    <string name="empty_search_title">Pencarian Media</string>
+    <string name="empty_search_desc">Ketik kata kunci atau tempel link video untuk memulai pencarian.</string>
+    <string name="loading_search">Mencari media...</string>
+    <string name="loading_stream">Mengekstrak stream via engine...</string>
+    <string name="error_search">Gagal memuat hasil pencarian.</string>
+    <string name="error_stream">Gagal mengekstrak stream video.</string>
+    <string name="retry">Coba Lagi</string>
+    
+    <!-- Player -->
+    <string name="mode_audio">Mode Audio</string>
+    <string name="mode_video">Mode Video</string>
+    <string name="audio_only_banner">Pemutaran Audio Saja</string>
+    <string name="audio_only_hint">Layar hemat daya aktif</string>
+    <string name="debug_title">Diagnostik Stream</string>
+    <string name="debug_status_idle">Status: Siap</string>
+    <string name="debug_status_extracting">Status: Menghubungkan ke engine WebView...</string>
+    <string name="debug_status_sniffing">Status: Sniffing stream signature &amp; token...</string>
+    <string name="debug_status_buffering">Status: ExoPlayer buffering stream...</string>
+    <string name="debug_status_playing">Status: Pemutaran aktif</string>
+    <string name="debug_status_error">Status: Error ekstraksi</string>
+    <string name="channel_unknown">Channel</string>
+    <string name="duration_unknown">--:--</string>
+</resources>

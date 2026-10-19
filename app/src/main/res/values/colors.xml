@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark Matte Monochrome Palette -->
+    <color name="bg_primary">#121316</color>
+    <color name="bg_surface">#1A1C20</color>
+    <color name="bg_elevated">#24272D</color>
+    <color name="border_subtle">#30343C</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#EDEDEF</color>
+    <color name="text_secondary">#9CA3AF</color>
+    <color name="text_muted">#6B7280</color>
+    
+    <!-- Neutral Accents -->
+    <color name="accent_neutral">#E2E8F0</color>
+    <color name="accent_secondary">#475569</color>
+    <color name="accent_pressed">#334155</color>
+    
+    <!-- Semantic Status (Muted) -->
+    <color name="status_success">#34D399</color>
+    <color name="status_warning">#FBBF24</color>
+    <color name="status_error">#F87171</color>
+    <color name="status_info">#60A5FA</color>
+</resources>
