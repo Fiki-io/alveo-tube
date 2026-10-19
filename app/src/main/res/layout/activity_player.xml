@@ -84,6 +84,13 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <!-- Attached Invisible WebView for Active Engine Execution -->
+        <WebView
+            android:id="@+id/extractorWebView"
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:visibility="invisible" />
+
         <!-- Loading / Extraction Overlay -->
         <LinearLayout
             android:id="@+id/layoutPlayerLoading"

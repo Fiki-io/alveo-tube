@@ -69,7 +69,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun setupEngines() {
         playbackManager = PlaybackManager(this)
         playbackManager.attachPlayerView(binding.playerView)
-        streamExtractor = StreamExtractor(this)
+        streamExtractor = StreamExtractor(binding.extractorWebView)
     }
 
     private fun startExtraction() {
