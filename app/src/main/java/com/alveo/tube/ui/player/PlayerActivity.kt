@@ -55,11 +55,18 @@ class PlayerActivity : AppCompatActivity() {
             if (!isChecked) return@addOnButtonCheckedListener
             when (checkedId) {
                 R.id.btnModeVideo -> {
-                    binding.playerView.visibility = View.VISIBLE
+                    if (currentStreamResult != null) {
+                        binding.playerView.visibility = View.VISIBLE
+                        binding.extractorWebView.visibility = View.GONE
+                    } else {
+                        binding.extractorWebView.visibility = View.VISIBLE
+                        binding.playerView.visibility = View.GONE
+                    }
                     binding.layoutAudioOnly.visibility = View.GONE
                 }
                 R.id.btnModeAudio -> {
                     binding.playerView.visibility = View.GONE
+                    binding.extractorWebView.visibility = View.GONE
                     binding.layoutAudioOnly.visibility = View.VISIBLE
                 }
             }
@@ -85,6 +92,15 @@ class PlayerActivity : AppCompatActivity() {
             onSuccess = { result ->
                 currentStreamResult = result
                 binding.layoutPlayerLoading.visibility = View.GONE
+                binding.extractorWebView.visibility = View.GONE
+                if (binding.btnModeAudio.isChecked) {
+                    binding.playerView.visibility = View.GONE
+                    binding.layoutAudioOnly.visibility = View.VISIBLE
+                } else {
+                    binding.playerView.visibility = View.VISIBLE
+                    binding.layoutAudioOnly.visibility = View.GONE
+                }
+
                 binding.tvDebugStatus.text = getString(R.string.debug_status_playing) + " (${result.extractionLatencyMs}ms)"
                 binding.tvDebugDetails.text = buildString {
                     append("MIME: ").append(result.mimeType).append("\n")

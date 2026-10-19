@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
@@ -11,7 +12,6 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.alveo.tube.core.model.StreamResult
-import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicBoolean
 
 class StreamExtractor(private val webView: WebView) {
@@ -19,7 +19,6 @@ class StreamExtractor(private val webView: WebView) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val isCompleted = AtomicBoolean(false)
     private var timeoutRunnable: Runnable? = null
-    private var domCheckRunnable: Runnable? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     fun extractStream(
@@ -34,7 +33,7 @@ class StreamExtractor(private val webView: WebView) {
 
             cleanup()
 
-            onStatusUpdate("Menginisialisasi engine WebView aktif...")
+            onStatusUpdate("Menginisialisasi engine browser aktif...")
 
             try {
                 val settings = webView.settings
@@ -44,10 +43,29 @@ class StreamExtractor(private val webView: WebView) {
                 settings.mediaPlaybackRequiresUserGesture = false
                 settings.cacheMode = WebSettings.LOAD_DEFAULT
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                // Use desktop user-agent to trigger full HTML5 player auto-buffering
                 settings.userAgentString =
-                    "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
-                webView.webChromeClient = WebChromeClient()
+                webView.webChromeClient = object : WebChromeClient() {
+                    override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                        if (!isCompleted.get() && newProgress < 100) {
+                            onStatusUpdate("Memuat engine YouTube ($newProgress%)...")
+                        }
+                    }
+
+                    override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                        val msg = consoleMessage?.message() ?: ""
+                        if (msg.contains("play") || msg.contains("player") || msg.contains("error")) {
+                            mainHandler.post {
+                                if (!isCompleted.get()) {
+                                    onStatusUpdate("Console: ${msg.take(40)}")
+                                }
+                            }
+                        }
+                        return true
+                    }
+                }
 
                 webView.webViewClient = object : WebViewClient() {
                     override fun shouldInterceptRequest(
@@ -56,7 +74,7 @@ class StreamExtractor(private val webView: WebView) {
                     ): WebResourceResponse? {
                         val url = request?.url?.toString() ?: return null
 
-                        // Engine 1: Sniff direct videoplayback request
+                        // Check for googlevideo stream URL
                         if (url.contains("googlevideo.com/videoplayback") && !isCompleted.getAndSet(true)) {
                             val elapsed = System.currentTimeMillis() - startTime
                             val uri = Uri.parse(url)
@@ -76,7 +94,6 @@ class StreamExtractor(private val webView: WebView) {
                                         extractionLatencyMs = elapsed
                                     )
                                 )
-                                cleanup()
                             }
                         }
 
@@ -86,41 +103,48 @@ class StreamExtractor(private val webView: WebView) {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
                         if (!isCompleted.get()) {
-                            onStatusUpdate("Halaman siap, memicu pemutaran & ekstraksi...")
+                            onStatusUpdate("Halaman siap, mengeksekusi buffer player...")
 
-                            // Trigger playback
+                            // Auto-accept Google consent banner if present and trigger play
                             view?.evaluateJavascript(
                                 """
                                 (function() {
+                                    // 1. Click accept consent button if present
+                                    var buttons = Array.from(document.querySelectorAll('button'));
+                                    var consentBtn = buttons.find(function(b) {
+                                        var t = b.innerText || '';
+                                        return t.includes('Accept') || t.includes('Agree') || t.includes('Setuju');
+                                    });
+                                    if (consentBtn) { consentBtn.click(); }
+
+                                    // 2. Play video to trigger stream buffering
                                     var v = document.querySelector('video');
-                                    if (v) { v.muted = true; v.play().catch(function(e){}); }
-                                    var b = document.querySelector('.ytp-large-play-button') || document.querySelector('button');
-                                    if (b) { b.click(); }
+                                    if (v) {
+                                        v.muted = true;
+                                        v.play().catch(function(e) {});
+                                    }
+                                    var playBtn = document.querySelector('.ytp-large-play-button') || document.querySelector('.ytp-play-button');
+                                    if (playBtn) { playBtn.click(); }
                                 })();
                                 """.trimIndent(),
                                 null
                             )
-
-                            // Engine 2: Extract from ytInitialPlayerResponse directly from DOM
-                            pollPlayerResponse(startTime, onStatusUpdate, onSuccess)
                         }
                     }
                 }
 
-                // Safety timeout 15 seconds
+                // 30 seconds timeout
                 timeoutRunnable = Runnable {
                     if (!isCompleted.getAndSet(true)) {
-                        onError("Batas waktu ekstraksi habis (timeout)")
-                        cleanup()
+                        onError("Batas waktu ekstraksi habis (30 detik). Cek koneksi atau coba video lain.")
                     }
                 }
-                mainHandler.postDelayed(timeoutRunnable!!, 15000)
+                mainHandler.postDelayed(timeoutRunnable!!, 30000)
 
-                // Load Embed player with proper Referer (10x faster and lighter than full mobile watch page)
-                val targetUrl = "https://www.youtube.com/embed/$videoId?autoplay=1&enablejsapi=1"
-                val extraHeaders = mapOf("Referer" to "https://www.youtube.com/")
-                onStatusUpdate("Memuat player embed ke engine...")
-                webView.loadUrl(targetUrl, extraHeaders)
+                // Load desktop watch URL (which pre-buffers stream automatically)
+                val targetUrl = "https://www.youtube.com/watch?v=$videoId"
+                onStatusUpdate("Menghubungkan ke: youtube.com/watch?v=$videoId")
+                webView.loadUrl(targetUrl)
 
             } catch (e: Exception) {
                 if (!isCompleted.getAndSet(true)) {
@@ -131,97 +155,15 @@ class StreamExtractor(private val webView: WebView) {
         }
     }
 
-    private fun pollPlayerResponse(
-        startTime: Long,
-        onStatusUpdate: (String) -> Unit,
-        onSuccess: (StreamResult) -> Unit
-    ) {
-        var attempts = 0
-        domCheckRunnable = object : Runnable {
-            override fun run() {
-                if (isCompleted.get()) return
-
-                attempts++
-                webView.evaluateJavascript(
-                    """
-                    (function() {
-                        try {
-                            var pr = window.ytInitialPlayerResponse;
-                            if (pr && pr.streamingData) {
-                                var formats = (pr.streamingData.formats || []).concat(pr.streamingData.adaptiveFormats || []);
-                                for (var i = 0; i < formats.length; i++) {
-                                    if (formats[i].url) {
-                                        return JSON.stringify({
-                                            url: formats[i].url,
-                                            mimeType: formats[i].mimeType || 'video/mp4',
-                                            itag: formats[i].itag || 18
-                                        });
-                                    }
-                                }
-                            }
-                        } catch(e) {}
-                        return null;
-                    })();
-                    """.trimIndent()
-                ) { resultJson ->
-                    if (isCompleted.get()) return@evaluateJavascript
-
-                    if (!resultJson.isNullOrEmpty() && resultJson != "null") {
-                        try {
-                            val cleanJson = if (resultJson.startsWith("\"") && resultJson.endsWith("\"")) {
-                                // Unescape JSON string returned by evaluateJavascript
-                                JSONObject("{\"d\":$resultJson}").getString("d")
-                            } else {
-                                resultJson
-                            }
-
-                            val obj = JSONObject(cleanJson)
-                            val streamUrl = obj.optString("url")
-                            if (streamUrl.isNotEmpty() && !isCompleted.getAndSet(true)) {
-                                val elapsed = System.currentTimeMillis() - startTime
-                                val mimeType = obj.optString("mimeType", "video/mp4")
-                                val itag = obj.optInt("itag", 18)
-
-                                onStatusUpdate("Stream diekstrak via DOM (${elapsed}ms)")
-                                cancelTimeout()
-                                onSuccess(
-                                    StreamResult(
-                                        streamUrl = streamUrl,
-                                        mimeType = mimeType,
-                                        itag = itag,
-                                        headers = mapOf("Referer" to "https://www.youtube.com/"),
-                                        extractionLatencyMs = elapsed
-                                    )
-                                )
-                                cleanup()
-                                return@evaluateJavascript
-                            }
-                        } catch (_: Exception) {
-                            // Retry
-                        }
-                    }
-
-                    if (attempts < 10 && !isCompleted.get()) {
-                        mainHandler.postDelayed(this, 800)
-                    }
-                }
-            }
-        }
-        mainHandler.postDelayed(domCheckRunnable!!, 500)
-    }
-
     private fun cancelTimeout() {
         timeoutRunnable?.let { mainHandler.removeCallbacks(it) }
         timeoutRunnable = null
-        domCheckRunnable?.let { mainHandler.removeCallbacks(it) }
-        domCheckRunnable = null
     }
 
     fun cleanup() {
         cancelTimeout()
         mainHandler.post {
             webView.stopLoading()
-            webView.loadUrl("about:blank")
         }
     }
 }

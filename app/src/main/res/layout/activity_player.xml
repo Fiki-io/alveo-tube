@@ -42,11 +42,18 @@
         android:layout_height="220dp"
         android:background="@color/bg_surface">
 
-        <!-- ExoPlayer View -->
+        <!-- Active Engine WebView (Renders real player and captures stream) -->
+        <WebView
+            android:id="@+id/extractorWebView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <!-- ExoPlayer View (shown for native playback) -->
         <androidx.media3.ui.PlayerView
             android:id="@+id/playerView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:visibility="gone"
             app:surface_type="surface_view"
             app:use_controller="true" />
 
@@ -84,19 +91,12 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- Attached Invisible WebView for Active Engine Execution -->
-        <WebView
-            android:id="@+id/extractorWebView"
-            android:layout_width="1dp"
-            android:layout_height="1dp"
-            android:visibility="invisible" />
-
         <!-- Loading / Extraction Overlay -->
         <LinearLayout
             android:id="@+id/layoutPlayerLoading"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@color/bg_surface"
+            android:background="#991A1C20"
             android:gravity="center"
             android:orientation="vertical">
 
